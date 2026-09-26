@@ -88,7 +88,10 @@ export const createScan = (projectId: string, scanType: ScanType) =>
     method: "POST",
     body: JSON.stringify({ scan_type: scanType }),
   });
-
+export const deleteScan = (scanId: string) =>
+  request<void>(`/scans/${scanId}`, {
+    method: "DELETE",
+  });
 // --- Findings ---
 export const listFindingsForScan = (scanId: string) => request<FindingDetail[]>(`/scans/${scanId}/findings`);
 export const getFinding = (findingId: string) => request<FindingDetail>(`/findings/${findingId}`);
@@ -98,6 +101,10 @@ export const listReportsForScan = (scanId: string) => request<Report[]>(`/report
 export const generateReport = (scanId: string) =>
   request<Report>(`/scans/${scanId}/reports`, { method: "POST" });
 export const downloadReportUrl = (reportId: string) => `${BASE_URL}/reports/${reportId}/download`;
+export const deleteReport = (reportId: string) =>
+  request<void>(`/reports/${reportId}`, {
+    method: "DELETE",
+  });
 
 // --- Application map (dynamic analysis) ---
 export const listScanPages = (scanId: string) => request<WebPage[]>(`/scans/${scanId}/pages`);

@@ -12,6 +12,9 @@ class ReportRead(BaseModel):
 
     id: uuid.UUID
     scan_id: uuid.UUID
+    report_name: str
     report_type: str
     file_path: str | None
     created_at: datetime
+
+    

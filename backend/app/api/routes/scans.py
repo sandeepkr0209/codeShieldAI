@@ -4,6 +4,7 @@ the owning project (a scan has no owner of its own — it belongs to a
 project, which belongs to a user).
 """
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
@@ -13,7 +14,7 @@ from app.api.deps import get_current_user
 from app.db.session import get_db
 from app.models.endpoint import Endpoint
 from app.models.observation import Observation
-from app.models.scan import ScanType
+from app.models.scan import ScanStatus, ScanType
 from app.models.source_file import SourceFile
 from app.models.user import User
 from app.models.web_page import WebPage
@@ -94,7 +95,42 @@ def get_scan(
         finding_count=scan_service.scan_finding_count(db, scan.id),
     )
 
+@router.delete(
+    "/scans/{scan_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_scan(
+    scan_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    scan = _get_owned_scan_or_404(
+        db,
+        scan_id,
+        current_user,
+    )
 
+    if scan.status in {
+        ScanStatus.PENDING,
+        ScanStatus.RUNNING,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete a scan while it is pending or running",
+        )
+
+    # Delete generated report files from disk.
+    for report in scan.reports:
+        if report.file_path:
+            report_path = Path(report.file_path)
+
+            if report_path.exists():
+                report_path.unlink()
+
+    # SQLAlchemy cascade deletes related scan data.
+    db.delete(scan)
+    db.commit()
+    
 @router.get("/scans/{scan_id}/findings", response_model=list[FindingRead])
 def get_scan_findings(
     scan_id: uuid.UUID, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)

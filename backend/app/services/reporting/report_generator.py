@@ -11,11 +11,14 @@ import html
 from datetime import datetime, timezone
 from pathlib import Path
 
+import re
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.finding import Finding
 from app.models.project import Project
+from app.models.report import Report
 from app.models.scan import Scan
 
 REPORTS_DIR = Path(__file__).resolve().parent.parent.parent.parent / "storage" / "reports"
@@ -168,9 +171,119 @@ def _render_finding(f: Finding) -> str:
   </div>"""
 
 
-def save_report(db: Session, scan: Scan, project: Project) -> Path:
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
-    html_content = generate_html_report(db, scan, project)
-    file_path = REPORTS_DIR / f"{scan.id}.html"
-    file_path.write_text(html_content, encoding="utf-8")
-    return file_path
+def _sanitize_project_name(name: str) -> str:
+    """
+    Convert the project name into a safe filename component.
+    """
+    name = name.strip()
+
+    # Remove characters that are invalid in Windows filenames.
+    name = re.sub(r'[<>:"/\\|?*]', "", name)
+
+    # Convert spaces to hyphens.
+    name = re.sub(r"\s+", "-", name)
+
+    # Remove repeated hyphens.
+    name = re.sub(r"-+", "-", name)
+
+    return name.strip("-") or "CodeShieldAI"
+
+
+def _get_report_type(project: Project) -> str:
+    """
+    Convert the project target type into the report naming type.
+
+    website -> web
+    github  -> source
+    zip     -> zip
+    """
+    return {
+        "website": "web",
+        "github": "source",
+        "zip": "zip",
+    }.get(project.target_type.value, "source")
+
+
+def _get_next_report_name(
+    db: Session,
+    project: Project,
+) -> str:
+    """
+    Generate a unique report name for this project.
+
+    Examples:
+        MyProject-web
+        MyProject-web-1
+        MyProject-web-2
+
+        MyProject-source
+        MyProject-source-1
+
+        MyProject-zip
+        MyProject-zip-1
+    """
+    project_name = _sanitize_project_name(project.name)
+    report_type = _get_report_type(project)
+
+    prefix = f"{project_name}-{report_type}"
+
+    stmt = (
+        select(Report.report_name)
+        .join(Scan, Report.scan_id == Scan.id)
+        .where(Scan.project_id == project.id)
+    )
+
+    existing_names = {
+        name
+        for name in db.execute(stmt).scalars().all()
+        if name
+    }
+
+    # First report for this project/type.
+    if prefix not in existing_names:
+        return prefix
+
+    # Subsequent reports.
+    counter = 1
+
+    while f"{prefix}-{counter}" in existing_names:
+        counter += 1
+
+    return f"{prefix}-{counter}"
+
+
+def save_report(
+    db: Session,
+    scan: Scan,
+    project: Project,
+) -> tuple[Path, str]:
+    """
+    Generate and save an HTML report.
+
+    Returns:
+        (file_path, report_name)
+    """
+    REPORTS_DIR.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    html_content = generate_html_report(
+        db,
+        scan,
+        project,
+    )
+
+    report_name = _get_next_report_name(
+        db,
+        project,
+    )
+
+    file_path = REPORTS_DIR / f"{report_name}.html"
+
+    file_path.write_text(
+        html_content,
+        encoding="utf-8",
+    )
+
+    return file_path, report_name

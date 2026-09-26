@@ -176,6 +176,7 @@ export interface FindingDetail extends Finding {
 export interface Report {
   id: string;
   scan_id: string;
+  report_name: string;
   report_type: string;
   file_path: string | null;
   created_at: string;
