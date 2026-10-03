@@ -287,3 +287,35 @@ def save_report(
     )
 
     return file_path, report_name
+
+
+def generate_pdf_from_html(html_path: Path) -> bytes:
+    """
+    Convert a saved HTML report to PDF using Playwright.
+
+    Returns raw PDF bytes. The caller (API route) streams this
+    directly — we don't persist PDFs on disk to avoid doubling
+    storage for every report.
+
+    Requires:
+        playwright install chromium
+    """
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        page = browser.new_page()
+        page.goto(f"file:///{html_path.resolve()}")
+        pdf_bytes = page.pdf(
+            format="A4",
+            print_background=True,
+            margin={
+                "top": "20mm",
+                "bottom": "20mm",
+                "left": "15mm",
+                "right": "15mm",
+            },
+        )
+        browser.close()
+
+    return pdf_bytes

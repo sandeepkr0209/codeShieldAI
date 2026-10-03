@@ -188,6 +188,50 @@ def download_report(
         filename=f"{report.report_name}.html",
     )
 
+
+@router.get(
+    "/reports/{report_id}/download/pdf"
+)
+def download_report_pdf(
+    report_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    from fastapi import Response
+    
+    report = db.get(
+        Report,
+        report_id,
+    )
+
+    if report is None or not report.file_path:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report not found",
+        )
+
+    _get_owned_scan_and_project(
+        db,
+        report.scan_id,
+        current_user,
+    )
+
+    html_path = Path(report.file_path)
+    if not html_path.exists():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Report file not found on disk",
+        )
+
+    from app.services.reporting.report_generator import generate_pdf_from_html
+    pdf_bytes = generate_pdf_from_html(html_path)
+
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{report.report_name}.pdf"'},
+    )
+
 # deletion route
 
 @router.delete(

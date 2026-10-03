@@ -13,6 +13,7 @@ import {
 
 import {
   downloadReportUrl,
+  downloadPdfReportUrl,
   generateReport,
   deleteReport,
   deleteScan,
@@ -390,15 +391,26 @@ export default function Reports() {
                   {/* Report actions */}
                   <div className="flex items-center gap-3">
 
-                    {/* Download report */}
+                    {/* Download HTML report */}
                     <a
                       href={downloadReportUrl(r.id)}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-slate-500 hover:text-primary"
-                      title="Download report"
+                      className="text-slate-500 hover:text-primary flex items-center gap-1 text-xs font-medium"
+                      title="Download HTML"
                     >
-                      <Download className="h-4 w-4" />
+                      <Download className="h-3.5 w-3.5" /> HTML
+                    </a>
+
+                    {/* Download PDF report */}
+                    <a
+                      href={downloadPdfReportUrl(r.id)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-slate-500 hover:text-primary flex items-center gap-1 text-xs font-medium"
+                      title="Download PDF"
+                    >
+                      <Download className="h-3.5 w-3.5" /> PDF
                     </a>
 
                     {/* Delete report */}
