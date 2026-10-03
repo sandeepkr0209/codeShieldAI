@@ -73,6 +73,7 @@ class Scan(Base):
     # not installed, skipped"). A completed scan with warnings means
     # "completed with limited analysis", never silently reported as clean.
     warnings: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    auth_config_json: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # --- Live progress counters (web-application scans) ---
     pages_discovered: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

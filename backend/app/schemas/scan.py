@@ -11,6 +11,8 @@ from app.models.scan import ScanStatus, ScanType
 
 class ScanCreate(BaseModel):
     scan_type: ScanType
+    auth_cookies: dict[str, str] | None = None
+    auth_headers: dict[str, str] | None = None
 
 
 class ScanRead(BaseModel):

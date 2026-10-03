@@ -22,8 +22,16 @@ MAX_REDIRECTS = 3
 
 
 @dataclass
+class AuthConfig:
+    """Optional authentication context for authenticated crawling."""
+    cookies: dict[str, str] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass
 class ScanScope:
     target_url: str
+    auth: AuthConfig | None = None
     allowed_hosts: set[str] = field(default_factory=set)
     max_pages: int = DEFAULT_MAX_PAGES
     max_requests: int = DEFAULT_MAX_REQUESTS

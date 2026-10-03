@@ -16,7 +16,7 @@ Requires:
 import logging
 import time
 from dataclasses import dataclass, field
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from app.services.web_analysis.scope import ScanScope
 
@@ -87,9 +87,26 @@ def crawl(scope: ScanScope) -> CrawlResult:
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
 
-            context = browser.new_context(
-                ignore_https_errors=True
-            )
+            context_kwargs = {"ignore_https_errors": True}
+            if scope.auth:
+                if scope.auth.cookies:
+                    parsed = urlparse(scope.target_url)
+                    context_kwargs["storage_state"] = {
+                        "cookies": [
+                            {
+                                "name": name,
+                                "value": value,
+                                "domain": parsed.hostname,
+                                "path": "/",
+                            }
+                            for name, value in scope.auth.cookies.items()
+                        ],
+                        "origins": [],
+                    }
+                if scope.auth.headers:
+                    context_kwargs["extra_http_headers"] = scope.auth.headers
+            
+            context = browser.new_context(**context_kwargs)
 
             page = context.new_page()
 

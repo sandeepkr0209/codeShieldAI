@@ -46,11 +46,18 @@ class ControlledHttpClient:
     def __init__(self, scope: ScanScope):
         self.scope = scope
         self.request_count = 0
-        self._client = httpx.Client(
-            timeout=scope.request_timeout_seconds,
-            follow_redirects=False,  # we follow manually, respecting scope + max_redirects
-            verify=False,  # scanning targets frequently use self-signed local certs (dev/training apps)
-        )
+        client_kwargs = {
+            "timeout": scope.request_timeout_seconds,
+            "follow_redirects": False,
+            "verify": False,
+        }
+        if scope.auth:
+            if scope.auth.cookies:
+                client_kwargs["cookies"] = scope.auth.cookies
+            if scope.auth.headers:
+                client_kwargs["headers"] = scope.auth.headers
+        
+        self._client = httpx.Client(**client_kwargs)
 
     def close(self) -> None:
         self._client.close()
