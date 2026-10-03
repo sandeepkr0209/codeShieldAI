@@ -60,7 +60,7 @@ export function AnalysisProgress({
 
       <div className="flex items-center flex-wrap gap-y-3">
         {stages.map((stage, idx) => {
-          const isDone = !failed && effectiveIndex > idx;
+          const isDone = !failed && (effectiveIndex > idx || status === "completed");
           const isCurrent = !failed && effectiveIndex === idx && status === "running";
           const isFailedHere = failed && effectiveIndex === idx;
 
