@@ -56,3 +56,89 @@ def test_explain_observation_falls_back_on_llm_failure():
     assert result["confidence"] == 0.3
     assert "Fallback" in result["reasoning"]
     assert result["category"] == "Uncategorized"
+
+
+def test_explain_observation_falls_back_on_missing_required_field():
+    fake_provider = MagicMock()
+    fake_provider.generate_structured.return_value = {
+        "title": "SQL Injection",
+        "severity": "high",
+        "confidence": 0.8,
+    }
+
+    with patch(
+        "app.services.llm.security_explainer.get_llm_provider",
+        return_value=fake_provider,
+    ):
+        result = explain_observation(
+            source="semgrep",
+            rule_id="python.sql-injection",
+            message="Possible SQL injection",
+            file="db.py",
+            code_snippet=None,
+            raw_severity="HIGH",
+            language="python",
+            rag_context=[],
+        )
+
+    assert result["confidence"] == 0.3
+    assert result["category"] == "Uncategorized"
+
+
+def test_explain_observation_falls_back_on_invalid_confidence():
+    fake_provider = MagicMock()
+    fake_provider.generate_structured.return_value = {
+        "title": "SQL Injection",
+        "category": "SQL Injection",
+        "severity": "high",
+        "confidence": 1.5,
+        "description": "Potential SQL injection.",
+        "impact": "Database data could be exposed.",
+        "cwe_id": "CWE-89",
+        "owasp_category": "A03:2021 - Injection",
+        "remediation": "Use parameterized queries.",
+        "reasoning": "The observation suggests a possible injection issue.",
+    }
+
+    with patch(
+        "app.services.llm.security_explainer.get_llm_provider",
+        return_value=fake_provider,
+    ):
+        result = explain_observation(
+            source="semgrep",
+            rule_id="python.sql-injection",
+            message="Possible SQL injection",
+            file="db.py",
+            code_snippet=None,
+            raw_severity="HIGH",
+            language="python",
+            rag_context=[],
+        )
+
+    assert result["confidence"] == 0.3
+    assert result["category"] == "Uncategorized"
+
+
+def test_explain_observation_falls_back_on_provider_exception():
+    fake_provider = MagicMock()
+    fake_provider.generate_structured.side_effect = RuntimeError(
+        "Provider unavailable"
+    )
+
+    with patch(
+        "app.services.llm.security_explainer.get_llm_provider",
+        return_value=fake_provider,
+    ):
+        result = explain_observation(
+            source="semgrep",
+            rule_id="python.sql-injection",
+            message="Possible SQL injection",
+            file="db.py",
+            code_snippet=None,
+            raw_severity="HIGH",
+            language="python",
+            rag_context=[],
+        )
+
+    assert result["confidence"] == 0.3
+    assert result["category"] == "Uncategorized"

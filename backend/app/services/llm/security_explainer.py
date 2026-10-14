@@ -13,6 +13,7 @@ from app.services.llm import get_llm_provider
 
 logger = logging.getLogger(__name__)
 
+
 _SCHEMA_HINT = """{
   "title": "short human-readable finding title",
   "category": "e.g. SQL Injection, XSS, Broken Access Control, Security Misconfiguration",
@@ -37,6 +38,54 @@ _SYSTEM_PROMPT = (
     "assess, say so plainly in the reasoning field and lower the confidence score "
     "accordingly. Never claim certainty (confidence 1.0) from a single observation alone."
 )
+
+
+_REQUIRED_FIELDS = {
+    "title",
+    "category",
+    "severity",
+    "confidence",
+    "description",
+    "impact",
+    "cwe_id",
+    "owasp_category",
+    "remediation",
+    "reasoning",
+}
+
+_ALLOWED_SEVERITIES = {
+    "informational", "low", "medium", "high", "critical"
+}
+
+
+def _is_valid_finding(result: dict[str, Any]) -> bool:
+    """Check the required structure and basic value constraints."""
+    if not _REQUIRED_FIELDS.issubset(result):
+        return False
+
+    if not all(isinstance(result[field], str) and result[field].strip()
+               for field in (
+                   "title", "category", "description", "impact",
+                   "remediation", "reasoning"
+               )):
+        return False
+
+    if result["severity"] not in _ALLOWED_SEVERITIES:
+        return False
+
+    confidence = result["confidence"]
+    if (
+        isinstance(confidence, bool)
+        or not isinstance(confidence, (int, float))
+        or not 0.0 <= confidence <= 1.0
+    ):
+        return False
+
+    for field in ("cwe_id", "owasp_category"):
+        if result[field] is not None and not isinstance(result[field], str):
+            return False
+
+    return True
 
 
 def explain_observation(
@@ -85,14 +134,36 @@ Retrieved security knowledge:
 
 Produce the structured JSON finding now."""
 
-    provider = get_llm_provider()
-    result = provider.generate_structured(prompt, schema_hint=_SCHEMA_HINT, system_prompt=_SYSTEM_PROMPT)
 
-    if "error" in result:
-        logger.warning("LLM structured explanation failed for %s — falling back to raw observation", endpoint or file)
+    try:
+        provider = get_llm_provider()
+        result = provider.generate_structured(
+            prompt,
+            schema_hint=_SCHEMA_HINT,
+            system_prompt=_SYSTEM_PROMPT,
+        )
+    except Exception as exc:
+        logger.warning(
+            "LLM structured explanation failed for %s (%s)",
+            endpoint or file,
+            type(exc).__name__,
+        )
+        return _fallback_finding(source, rule_id, message, raw_severity)
+
+    if (
+        not isinstance(result, dict)
+        or "error" in result
+        or not _is_valid_finding(result)
+    ):
+        logger.warning(
+            "LLM returned an invalid structured finding for %s",
+            endpoint or file,
+        )
         return _fallback_finding(source, rule_id, message, raw_severity)
 
     return result
+
+
 
 
 def _fallback_finding(source: str, rule_id: str | None, message: str, raw_severity: str | None) -> dict[str, Any]:
