@@ -27,7 +27,9 @@ export default function Scans() {
   });
 
   const isLoading = projectsLoading || scanQueries.some((q) => q.isLoading);
-  const projectById = new Map<string, (typeof projects)[number]>((projects ?? []).map((p) => [p.id, p]));
+  const projectById = new Map(
+    (projects ?? []).map((project) => [project.id, project])
+  );
   const allScans = scanQueries.flatMap((q) => q.data ?? []).sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   return (
