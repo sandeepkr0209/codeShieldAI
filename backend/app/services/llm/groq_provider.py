@@ -40,8 +40,12 @@ class GroqProvider(LLMProvider):
         )
         return completion.choices[0].message.content or ""
 
+
     def generate_structured(
-        self, prompt: str, schema_hint: str, system_prompt: str | None = None
+        self,
+        prompt: str,
+        schema_hint: str,
+        system_prompt: str | None = None,
     ) -> dict[str, Any]:
         structured_system = (
             (system_prompt or "")
@@ -55,21 +59,31 @@ class GroqProvider(LLMProvider):
             {"role": "user", "content": prompt},
         ]
 
-        completion = self._client.chat.completions.create(
-            model=self._model,
-            messages=messages,
-            temperature=0.1,
-            max_tokens=1024,
-            response_format={"type": "json_object"},
-        )
-
-        raw = completion.choices[0].message.content or ""
-
         try:
-            return json.loads(raw)
+            completion = self._client.chat.completions.create(
+                model=self._model,
+                messages=messages,
+                temperature=0.1,
+                max_tokens=1024,
+                response_format={"type": "json_object"},
+            )
+
+            raw = completion.choices[0].message.content or ""
+            result = json.loads(raw)
+
+            if not isinstance(result, dict):
+                logger.warning("Groq returned JSON that was not an object")
+                return {"error": "invalid_json"}
+
+            return result
+
         except json.JSONDecodeError:
-            logger.error("Groq structured response was not valid JSON: %s", raw)
-            return {
-                "error": "invalid_json",
-                "raw_response": raw,
-            }
+            logger.warning("Groq returned invalid JSON")
+            return {"error": "invalid_json"}
+
+        except Exception as exc:
+            logger.warning(
+                "Groq structured generation failed (%s)",
+                type(exc).__name__,
+            )
+            return {"error": "provider_error"}

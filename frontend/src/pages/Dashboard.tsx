@@ -42,7 +42,6 @@ export default function Dashboard() {
   const allFindings = findingQueries.flatMap((q) => q.data ?? []);
 
   const totalScans = projects?.reduce((sum, p) => sum + p.scan_count, 0) ?? 0;
-  const totalFindings = projects?.reduce((sum, p) => sum + p.finding_count, 0) ?? 0;
   const hasData = (projects?.length ?? 0) > 0;
   const criticalCount = allFindings.filter((f) => f.severity === "critical").length;
   const highCount = allFindings.filter((f) => f.severity === "high").length;
